@@ -56,7 +56,7 @@ public class TempDir {
       return this;
     }
 
-    /** Do not automatically delete the directory on JVM exit with {@link File#deleteOnExit()}. */
+    /** Do not automatically delete the directory including its contents on JVM exit. */
     @CanIgnoreReturnValue
     public TempDirBuilder noDeleteOnJvmExit() {
       deleteOnJvmExit = false;
@@ -73,8 +73,8 @@ public class TempDir {
     /**
      * Create a fresh temporary directory according to the specifications set on this builder.
      *
-     * <p>If the temporary directory should be removed after some specific code is executed, use
-     * {@link #createDeleteOnClose()}.
+     * <p>If the temporary directory should be removed including its contents after some specific
+     * code is executed, use {@link #createDeleteOnClose()}.
      *
      * <p>This instance can be safely used again afterwards.
      */
@@ -98,7 +98,8 @@ public class TempDir {
       }
 
       if (deleteOnJvmExit) {
-        tempDir.toFile().deleteOnExit();
+        Runtime.getRuntime()
+            .addShutdownHook(new Thread(() -> deleteDirectoryWithoutIoException(tempDir.toFile())));
       }
 
       return tempDir;
@@ -108,7 +109,8 @@ public class TempDir {
      * Create a fresh temporary directory according to the specifications set on this builder.
      *
      * <p>The resulting {@link Path} object is wrapped in a {@link DeleteOnCloseDir}, which deletes
-     * the directory as soon as {@link DeleteOnCloseDir#close()} is called.
+     * the directory recursively including its contents as soon as {@link DeleteOnCloseDir#close()}
+     * is called.
      *
      * <p>This instance can be safely used again afterwards.
      */
@@ -118,10 +120,9 @@ public class TempDir {
   }
 
   /**
-   * A simple wrapper around {@link Path} that calls {@link Files#deleteIfExists(Path)} from {@link
-   * AutoCloseable#close()}.
+   * A simple wrapper around {@link Path} that calls {@link Files#deleteIfExists(Path)} recursively
+   * from {@link AutoCloseable#close()} to delete the directory including its contents.
    */
-  @SuppressWarnings("deprecation")
   @Immutable
   public static final class DeleteOnCloseDir implements AutoCloseable {
 
@@ -137,7 +138,27 @@ public class TempDir {
 
     @Override
     public void close() throws IOException {
-      Files.deleteIfExists(path);
+      deleteDirectory(path.toFile());
     }
+  }
+
+  private static boolean deleteDirectory(File pDir) throws IOException {
+    File[] contents = pDir.listFiles();
+    if (contents != null) {
+      for (File file : contents) {
+        deleteDirectory(file);
+      }
+    }
+    return Files.deleteIfExists(pDir.toPath());
+  }
+
+  private static boolean deleteDirectoryWithoutIoException(File pDir) {
+    File[] contents = pDir.listFiles();
+    if (contents != null) {
+      for (File file : contents) {
+        deleteDirectoryWithoutIoException(file);
+      }
+    }
+    return pDir.delete();
   }
 }
