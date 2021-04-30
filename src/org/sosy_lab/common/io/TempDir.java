@@ -142,6 +142,7 @@ public class TempDir {
     }
   }
 
+  @CanIgnoreReturnValue
   private static boolean deleteDirectory(File pDir) throws IOException {
     File[] contents = pDir.listFiles();
     if (contents != null) {
@@ -152,6 +153,7 @@ public class TempDir {
     return Files.deleteIfExists(pDir.toPath());
   }
 
+  @CanIgnoreReturnValue
   private static boolean deleteDirectoryWithoutIoException(File pDir) {
     File[] contents = pDir.listFiles();
     if (contents != null) {
