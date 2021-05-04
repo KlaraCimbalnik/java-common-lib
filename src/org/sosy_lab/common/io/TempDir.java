@@ -99,7 +99,16 @@ public class TempDir {
 
       if (deleteOnJvmExit) {
         Runtime.getRuntime()
-            .addShutdownHook(new Thread(() -> deleteDirectoryWithoutIoException(tempDir.toFile())));
+            .addShutdownHook(
+                new Thread(
+                    () -> {
+                      try {
+                        deleteDirectory(tempDir.toFile());
+                      } catch (IOException e) {
+                        // ignore, as this code is executed on JVM exit
+                        // this behavior corresponds to the effect of File.deleteOnExit
+                      }
+                    }));
       }
 
       return tempDir;
@@ -151,16 +160,5 @@ public class TempDir {
       }
     }
     return Files.deleteIfExists(pDir.toPath());
-  }
-
-  @CanIgnoreReturnValue
-  private static boolean deleteDirectoryWithoutIoException(File pDir) {
-    File[] contents = pDir.listFiles();
-    if (contents != null) {
-      for (File file : contents) {
-        deleteDirectoryWithoutIoException(file);
-      }
-    }
-    return pDir.delete();
   }
 }
