@@ -121,6 +121,12 @@ public class TempDir {
      * the directory recursively including its contents as soon as {@link DeleteOnCloseDir#close()}
      * is called.
      *
+     * <p>It is recommended to use the following pattern: <code>
+     * try (DeleteOnCloseDir tempDir = TempDir.builder()[.. adjust builder ..].createDeleteOnClose()) {
+     *   // use tempDir.toPath() to get the Path object denoting the temporary directory
+     * }
+     * </code>
+     *
      * <p>This instance can be safely used again afterwards.
      */
     public DeleteOnCloseDir createDeleteOnClose() throws IOException {
