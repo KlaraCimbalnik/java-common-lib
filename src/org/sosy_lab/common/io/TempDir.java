@@ -89,11 +89,11 @@ public class TempDir {
           throw e;
         }
 
-        String fileName = dir.resolve(prefix + "*").toString();
+        String dirName = dir.resolve(prefix + "*").toString();
         if (Strings.nullToEmpty(e.getMessage()).isEmpty()) {
-          throw new IOException(fileName, e);
+          throw new IOException(dirName, e);
         } else {
-          throw new IOException(fileName + " (" + e.getMessage() + ")", e);
+          throw new IOException(dirName + " (" + e.getMessage() + ")", e);
         }
       }
 
