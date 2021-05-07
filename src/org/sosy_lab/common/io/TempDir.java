@@ -8,23 +8,15 @@
 
 package org.sosy_lab.common.io;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import com.google.common.base.StandardSystemProperty;
-import com.google.common.base.Strings;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Immutable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.attribute.FileAttribute;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class TempDir {
-
-  private static final Path TMPDIR = Paths.get(StandardSystemProperty.JAVA_IO_TMPDIR.value());
 
   private TempDir() {}
 
@@ -33,86 +25,9 @@ public class TempDir {
     return new TempDirBuilder();
   }
 
-  public static final class TempDirBuilder {
-
-    private Path dir = TMPDIR;
-    private @Nullable String prefix;
-    private boolean deleteOnJvmExit = true;
-    private FileAttribute<?>[] fileAttributes = new FileAttribute<?>[0];
+  public static final class TempDirBuilder extends TempPathBuilder {
 
     private TempDirBuilder() {}
-
-    /** The directory where the temp dir will be created, default is JVM's temp directory. */
-    @CanIgnoreReturnValue
-    public TempDirBuilder dir(Path pDir) {
-      dir = checkNotNull(pDir);
-      return this;
-    }
-
-    /** Prefix of randomly-generated directory name. */
-    @CanIgnoreReturnValue
-    public TempDirBuilder prefix(String pPrefix) {
-      prefix = checkNotNull(pPrefix);
-      return this;
-    }
-
-    /** Do not automatically delete the directory including its contents on JVM exit. */
-    @CanIgnoreReturnValue
-    public TempDirBuilder noDeleteOnJvmExit() {
-      deleteOnJvmExit = false;
-      return this;
-    }
-
-    /** Use the specified {@link FileAttribute}s for creating the directory. */
-    @CanIgnoreReturnValue
-    public TempDirBuilder fileAttributes(FileAttribute<?>... pFileAttributes) {
-      fileAttributes = pFileAttributes.clone();
-      return this;
-    }
-
-    /**
-     * Create a fresh temporary directory according to the specifications set on this builder.
-     *
-     * <p>If the temporary directory should be removed including its contents after some specific
-     * code is executed, use {@link #createDeleteOnClose()}.
-     *
-     * <p>This instance can be safely used again afterwards.
-     */
-    public Path create() throws IOException {
-      Path tempDir;
-      try {
-        tempDir = Files.createTempDirectory(dir, prefix, fileAttributes);
-      } catch (IOException e) {
-        // The message of this exception is often quite unhelpful,
-        // improve it by adding the path where we attempted to write.
-        if (e.getMessage() != null && e.getMessage().contains(dir.toString())) {
-          throw e;
-        }
-
-        String dirName = dir.resolve(prefix + "*").toString();
-        if (Strings.nullToEmpty(e.getMessage()).isEmpty()) {
-          throw new IOException(dirName, e);
-        } else {
-          throw new IOException(dirName + " (" + e.getMessage() + ")", e);
-        }
-      }
-
-      if (deleteOnJvmExit) {
-        Runtime.getRuntime()
-            .addShutdownHook(
-                new Thread(
-                    () -> {
-                      try {
-                        deleteDirectory(tempDir.toFile());
-                      } catch (IOException e) {
-                        // ignore, as this code is executed on JVM exit
-                        // this behavior corresponds to the effect of File.deleteOnExit
-                      }
-                    }));
-      }
-
-      return tempDir;
-    }
 
     /**
      * Create a fresh temporary directory according to the specifications set on this builder.
@@ -129,8 +44,40 @@ public class TempDir {
      *
      * <p>This instance can be safely used again afterwards.
      */
+    @Override
     public DeleteOnCloseDir createDeleteOnClose() throws IOException {
       return new DeleteOnCloseDir(create());
+    }
+
+    @Override
+    protected Path createPath(Path pDir, String pPrefix, FileAttribute<?>... pFileAttributes)
+        throws IOException {
+      return Files.createTempDirectory(pDir, pPrefix, pFileAttributes);
+    }
+
+    @Override
+    protected String getPathName(Path pDir, String pPrefix) {
+      return pDir.resolve(pPrefix + "*").toString();
+    }
+
+    @Override
+    protected void deletePathOnJvmExit(Path pDir) {
+      Runtime.getRuntime()
+          .addShutdownHook(
+              new Thread(
+                  () -> {
+                    try {
+                      deleteDirectory(pDir.toFile());
+                    } catch (IOException e) {
+                      // ignore, as this code is executed on JVM exit
+                      // this behavior corresponds to the effect of File.deleteOnExit
+                    }
+                  }));
+    }
+
+    @Override
+    protected void createContent(Path file) throws IOException {
+      // TempDir does not support initial content
     }
   }
 

@@ -10,27 +10,21 @@ package org.sosy_lab.common.io;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.base.StandardSystemProperty;
-import com.google.common.base.Strings;
 import com.google.common.io.ByteSink;
 import com.google.common.io.ByteSource;
 import com.google.common.io.CharSink;
 import com.google.common.io.CharSource;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Immutable;
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.attribute.FileAttribute;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** Utilities for temporary files. */
 public class TempFile {
-
-  private static final Path TMPDIR = Paths.get(StandardSystemProperty.JAVA_IO_TMPDIR.value());
 
   private TempFile() {}
 
@@ -39,31 +33,13 @@ public class TempFile {
     return new TempFileBuilder();
   }
 
-  public static final class TempFileBuilder {
+  public static final class TempFileBuilder extends TempPathBuilder {
 
-    private Path dir = TMPDIR;
     private String suffix = ".tmp";
-    private @Nullable String prefix;
     private @Nullable Object content;
     private @Nullable Charset charset;
-    private boolean deleteOnJvmExit = true;
-    private FileAttribute<?>[] fileAttributes = new FileAttribute<?>[0];
 
     private TempFileBuilder() {}
-
-    /** The directory where the file will be created, default is JVM's temp directory. */
-    @CanIgnoreReturnValue
-    public TempFileBuilder dir(Path pDir) {
-      dir = checkNotNull(pDir);
-      return this;
-    }
-
-    /** Prefix of randomly-generated file name. */
-    @CanIgnoreReturnValue
-    public TempFileBuilder prefix(String pPrefix) {
-      prefix = checkNotNull(pPrefix);
-      return this;
-    }
 
     /** Suffix of randomly generated file name, default is <code>.tmp</code>. */
     @CanIgnoreReturnValue
@@ -82,68 +58,6 @@ public class TempFile {
       return this;
     }
 
-    /** Do not automatically delete the file on JVM exit with {@link File#deleteOnExit()}. */
-    @CanIgnoreReturnValue
-    public TempFileBuilder noDeleteOnJvmExit() {
-      deleteOnJvmExit = false;
-      return this;
-    }
-
-    /** Use the specified {@link FileAttribute}s for creating the file. */
-    @CanIgnoreReturnValue
-    public TempFileBuilder fileAttributes(FileAttribute<?>... pFileAttributes) {
-      fileAttributes = pFileAttributes.clone();
-      return this;
-    }
-
-    /**
-     * Create a fresh temporary file according to the specifications set on this builder.
-     *
-     * <p>If the temporary file should be removed after some specific code is executed, use {@link
-     * #createDeleteOnClose()}.
-     *
-     * <p>This instance can be safely used again afterwards.
-     */
-    public Path create() throws IOException {
-      Path file;
-      try {
-        file = Files.createTempFile(dir, prefix, suffix, fileAttributes);
-      } catch (IOException e) {
-        // The message of this exception is often quite unhelpful,
-        // improve it by adding the path were we attempted to write.
-        if (e.getMessage() != null && e.getMessage().contains(dir.toString())) {
-          throw e;
-        }
-
-        String fileName = dir.resolve(prefix + "*" + suffix).toString();
-        if (Strings.nullToEmpty(e.getMessage()).isEmpty()) {
-          throw new IOException(fileName, e);
-        } else {
-          throw new IOException(fileName + " (" + e.getMessage() + ")", e);
-        }
-      }
-
-      if (deleteOnJvmExit) {
-        file.toFile().deleteOnExit();
-      }
-
-      if (content != null) {
-        try {
-          IO.writeFile(file, charset, content);
-        } catch (IOException e) {
-          // creation was successful, but writing failed
-          // -> delete file
-          try {
-            Files.delete(file);
-          } catch (IOException deleteException) {
-            e.addSuppressed(deleteException);
-          }
-          throw e;
-        }
-      }
-      return file;
-    }
-
     /**
      * Create a fresh temporary file according to the specifications set on this builder.
      *
@@ -159,8 +73,43 @@ public class TempFile {
      *
      * <p>This instance can be safely used again afterwards.
      */
+    @Override
     public DeleteOnCloseFile createDeleteOnClose() throws IOException {
       return new DeleteOnCloseFile(create());
+    }
+
+    @Override
+    protected Path createPath(Path pDir, String pPrefix, FileAttribute<?>... pFileAttributes)
+        throws IOException {
+      return Files.createTempFile(pDir, pPrefix, suffix, pFileAttributes);
+    }
+
+    @Override
+    protected String getPathName(Path pDir, String pPrefix) {
+      return pDir.resolve(pPrefix + "*" + suffix).toString();
+    }
+
+    @Override
+    protected void deletePathOnJvmExit(Path file) {
+      file.toFile().deleteOnExit();
+    }
+
+    @Override
+    protected void createContent(Path file) throws IOException {
+      if (content != null) {
+        try {
+          IO.writeFile(file, charset, content);
+        } catch (IOException e) {
+          // creation was successful, but writing failed
+          // -> delete file
+          try {
+            Files.delete(file);
+          } catch (IOException deleteException) {
+            e.addSuppressed(deleteException);
+          }
+          throw e;
+        }
+      }
     }
   }
 
