@@ -9,8 +9,8 @@
 package org.sosy_lab.common.io;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.sosy_lab.common.io.TempFile.TMPDIR;
 
-import com.google.common.base.StandardSystemProperty;
 import com.google.common.base.Strings;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Immutable;
@@ -18,13 +18,10 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.attribute.FileAttribute;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class TempDir {
-
-  private static final Path TMPDIR = Paths.get(StandardSystemProperty.JAVA_IO_TMPDIR.value());
 
   private TempDir() {}
 
