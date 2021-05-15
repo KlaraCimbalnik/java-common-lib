@@ -9,6 +9,7 @@
 package org.sosy_lab.common.io;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.io.MoreFiles.deleteRecursively;
 
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.base.Strings;
@@ -204,6 +205,70 @@ public class TempFile {
     @SuppressWarnings("RedundantOverride") // to avoid deprecation warning when method is called
     public void close() throws IOException {
       super.close();
+    }
+  }
+
+  /**
+   * Create a fresh temporary directory in JVM's temp directory.
+   *
+   * <p>The resulting {@link Path} object is wrapped in a {@link DeleteOnCloseDir}, which deletes
+   * the directory recursively including its contents as soon as {@link DeleteOnCloseDir#close()} is
+   * called.
+   *
+   * <p>It is recommended to use the following pattern: <code>
+   * try (DeleteOnCloseDir tempDir = TempFile.createDeleteOnCloseDir()) {
+   *   // use tempDir.toPath() to get the Path object denoting the temporary directory
+   * }
+   * </code>
+   *
+   * @param pPrefix The prefix of the randomly-generated directory name.
+   * @param pFileAttributes The {@link FileAttribute}s used for creating the directory.
+   */
+  public static DeleteOnCloseDir createDeleteOnCloseDir(
+      String pPrefix, FileAttribute<?>... pFileAttributes) throws IOException {
+    pPrefix = checkNotNull(pPrefix);
+    Path tempDir;
+    try {
+      tempDir = Files.createTempDirectory(TMPDIR, pPrefix, pFileAttributes.clone());
+    } catch (IOException e) {
+      // The message of this exception is often quite unhelpful,
+      // improve it by adding the path where we attempted to write.
+      if (e.getMessage() != null && e.getMessage().contains(TMPDIR.toString())) {
+        throw e;
+      }
+
+      String dirName = TMPDIR.resolve(pPrefix + "*").toString();
+      if (Strings.nullToEmpty(e.getMessage()).isEmpty()) {
+        throw new IOException(dirName, e);
+      } else {
+        throw new IOException(dirName + " (" + e.getMessage() + ")", e);
+      }
+    }
+    return new DeleteOnCloseDir(tempDir);
+  }
+
+  /**
+   * A simple wrapper around {@link Path} that calls {@link
+   * com.google.common.io.MoreFiles#deleteRecursively(Path,
+   * com.google.common.io.RecursiveDeleteOption...)} recursively from {@link AutoCloseable#close()}
+   * to delete the directory including its contents.
+   */
+  @Immutable
+  public static final class DeleteOnCloseDir implements AutoCloseable {
+
+    private final Path path;
+
+    private DeleteOnCloseDir(Path pDir) {
+      path = pDir;
+    }
+
+    public Path toPath() {
+      return path;
+    }
+
+    @Override
+    public void close() throws IOException {
+      deleteRecursively(path);
     }
   }
 }
