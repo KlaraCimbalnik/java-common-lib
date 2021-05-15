@@ -9,12 +9,13 @@
 package org.sosy_lab.common.io;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.io.MoreFiles.deleteRecursively;
 import static org.sosy_lab.common.io.TempFile.TMPDIR;
 
 import com.google.common.base.Strings;
+import com.google.common.io.MoreFiles;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Immutable;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,7 +35,6 @@ public class TempDir {
 
     private Path dir = TMPDIR;
     private @Nullable String prefix;
-    private boolean deleteOnJvmExit = true;
     private FileAttribute<?>[] fileAttributes = new FileAttribute<?>[0];
 
     private TempDirBuilder() {}
@@ -50,13 +50,6 @@ public class TempDir {
     @CanIgnoreReturnValue
     public TempDirBuilder prefix(String pPrefix) {
       prefix = checkNotNull(pPrefix);
-      return this;
-    }
-
-    /** Do not automatically delete the directory including its contents on JVM exit. */
-    @CanIgnoreReturnValue
-    public TempDirBuilder noDeleteOnJvmExit() {
-      deleteOnJvmExit = false;
       return this;
     }
 
@@ -94,20 +87,6 @@ public class TempDir {
         }
       }
 
-      if (deleteOnJvmExit) {
-        Runtime.getRuntime()
-            .addShutdownHook(
-                new Thread(
-                    () -> {
-                      try {
-                        deleteDirectory(tempDir.toFile());
-                      } catch (IOException e) {
-                        // ignore, as this code is executed on JVM exit
-                        // this behavior corresponds to the effect of File.deleteOnExit
-                      }
-                    }));
-      }
-
       return tempDir;
     }
 
@@ -132,8 +111,9 @@ public class TempDir {
   }
 
   /**
-   * A simple wrapper around {@link Path} that calls {@link Files#deleteIfExists(Path)} recursively
-   * from {@link AutoCloseable#close()} to delete the directory including its contents.
+   * A simple wrapper around {@link Path} that calls {@link MoreFiles#deleteRecursively(Path,
+   * com.google.common.io.RecursiveDeleteOption...)} recursively from {@link AutoCloseable#close()}
+   * to delete the directory including its contents.
    */
   @Immutable
   public static final class DeleteOnCloseDir implements AutoCloseable {
@@ -150,18 +130,7 @@ public class TempDir {
 
     @Override
     public void close() throws IOException {
-      deleteDirectory(path.toFile());
+      deleteRecursively(path);
     }
-  }
-
-  @CanIgnoreReturnValue
-  private static boolean deleteDirectory(File pDir) throws IOException {
-    File[] contents = pDir.listFiles();
-    if (contents != null) {
-      for (File file : contents) {
-        deleteDirectory(file);
-      }
-    }
-    return Files.deleteIfExists(pDir.toPath());
   }
 }

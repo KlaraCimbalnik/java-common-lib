@@ -30,7 +30,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 /** Utilities for temporary files. */
 public class TempFile {
 
-  public static final Path TMPDIR = Paths.get(StandardSystemProperty.JAVA_IO_TMPDIR.value());
+  static final Path TMPDIR = Paths.get(StandardSystemProperty.JAVA_IO_TMPDIR.value());
 
   private TempFile() {}
 
@@ -151,7 +151,8 @@ public class TempFile {
      * the file as soon as {@link DeleteOnCloseFile#close()} is called.
      *
      * <p>It is recommended to use the following pattern: <code>
-     * try (DeleteOnCloseFile tempFile = TempFile.builder()[.. adjust builder ..].createDeleteOnClose()) {
+     * try (DeleteOnCloseFile tempFile =
+     *     TempFile.builder()[.. adjust builder ..].createDeleteOnClose()) {
      *   // use tempFile.toPath() for writing and reading of the temporary file
      * }
      * </code> The file can be opened and closed multiple times, potentially from different
