@@ -226,7 +226,7 @@ public class TempFile {
    */
   public static DeleteOnCloseDir createDeleteOnCloseDir(
       String pPrefix, FileAttribute<?>... pFileAttributes) throws IOException {
-    pPrefix = checkNotNull(pPrefix);
+    checkNotNull(pPrefix);
     Path tempDir;
     try {
       tempDir = Files.createTempDirectory(TMPDIR, pPrefix, pFileAttributes.clone());
