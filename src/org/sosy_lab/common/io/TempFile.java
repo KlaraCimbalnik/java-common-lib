@@ -31,7 +31,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 /** Utilities for temporary files. */
 public class TempFile {
 
-  static final Path TMPDIR = Paths.get(StandardSystemProperty.JAVA_IO_TMPDIR.value());
+  private static final Path TMPDIR = Paths.get(StandardSystemProperty.JAVA_IO_TMPDIR.value());
 
   private TempFile() {}
 
