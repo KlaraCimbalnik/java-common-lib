@@ -110,18 +110,7 @@ public class TempFile {
       try {
         file = Files.createTempFile(dir, prefix, suffix, fileAttributes);
       } catch (IOException e) {
-        // The message of this exception is often quite unhelpful,
-        // improve it by adding the path were we attempted to write.
-        if (e.getMessage() != null && e.getMessage().contains(dir.toString())) {
-          throw e;
-        }
-
-        String fileName = dir.resolve(prefix + "*" + suffix).toString();
-        if (Strings.nullToEmpty(e.getMessage()).isEmpty()) {
-          throw new IOException(fileName, e);
-        } else {
-          throw new IOException(fileName + " (" + e.getMessage() + ")", e);
-        }
+        throw improveIoExceptionMessage(e, dir, prefix + "*" + suffix);
       }
 
       if (deleteOnJvmExit) {
@@ -231,18 +220,7 @@ public class TempFile {
     try {
       tempDir = Files.createTempDirectory(TMPDIR, pPrefix, pFileAttributes.clone());
     } catch (IOException e) {
-      // The message of this exception is often quite unhelpful,
-      // improve it by adding the path where we attempted to write.
-      if (e.getMessage() != null && e.getMessage().contains(TMPDIR.toString())) {
-        throw e;
-      }
-
-      String dirName = TMPDIR.resolve(pPrefix + "*").toString();
-      if (Strings.nullToEmpty(e.getMessage()).isEmpty()) {
-        throw new IOException(dirName, e);
-      } else {
-        throw new IOException(dirName + " (" + e.getMessage() + ")", e);
-      }
+      throw improveIoExceptionMessage(e, TMPDIR, pPrefix + "*");
     }
     return new DeleteOnCloseDir(tempDir);
   }
@@ -269,6 +247,22 @@ public class TempFile {
     @Override
     public void close() throws IOException {
       deleteRecursively(path);
+    }
+  }
+
+  private static IOException improveIoExceptionMessage(
+      IOException pException, Path pDir, String pPathString) {
+    // The message of this exception is often quite unhelpful,
+    // improve it by adding the path were we attempted to write.
+    if (pException.getMessage() != null && pException.getMessage().contains(pDir.toString())) {
+      return pException;
+    }
+
+    String fileName = pDir.resolve(pPathString).toString();
+    if (Strings.nullToEmpty(pException.getMessage()).isEmpty()) {
+      return new IOException(fileName, pException);
+    } else {
+      return new IOException(fileName + " (" + pException.getMessage() + ")", pException);
     }
   }
 }
