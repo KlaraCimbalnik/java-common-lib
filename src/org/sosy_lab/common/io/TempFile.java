@@ -9,7 +9,6 @@
 package org.sosy_lab.common.io;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.io.MoreFiles.deleteRecursively;
 
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.base.Strings;
@@ -218,7 +217,7 @@ public class TempFile {
     checkNotNull(pPrefix);
     Path tempDir;
     try {
-      tempDir = Files.createTempDirectory(TMPDIR, pPrefix, pFileAttributes.clone());
+      tempDir = Files.createTempDirectory(TMPDIR, pPrefix, pFileAttributes);
     } catch (IOException e) {
       throw improveIoExceptionMessage(e, TMPDIR, pPrefix + "*");
     }
@@ -244,9 +243,12 @@ public class TempFile {
       return path;
     }
 
+    /**
+     * Recursively delete all files and directories in the directory represented by this instance.
+     */
     @Override
     public void close() throws IOException {
-      deleteRecursively(path);
+      com.google.common.io.MoreFiles.deleteRecursively(path);
     }
   }
 
